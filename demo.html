@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>SharePoker Demo</title>
+	<style>
+		body {
+			font-family: Arial, sans-serif;
+			max-width: 800px;
+			margin: 0 auto;
+			padding: 20px;
+			background-color: #f5f5f5;
+		}
+		.container {
+			background: white;
+			padding: 20px;
+			border-radius: 8px;
+			box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+			margin-bottom: 20px;
+		}
+		h1, h2 {
+			color: #333;
+		}
+		.form-group {
+			margin-bottom: 15px;
+		}
+		label {
+			display: block;
+			margin-bottom: 5px;
+			font-weight: bold;
+		}
+		input, select, button {
+			width: 100%;
+			padding: 8px;
+			border: 1px solid #ddd;
+			border-radius: 4px;
+			box-sizing: border-box;
+		}
+		button {
+			background-color: #007bff;
+			color: white;
+			border: none;
+			cursor: pointer;
+			margin-top: 10px;
+		}
+		button:hover {
+			background-color: #0056b3;
+		}
+		.result {
+			background-color: #f8f9fa;
+			border: 1px solid #dee2e6;
+			border-radius: 4px;
+			padding: 15px;
+			margin-top: 15px;
+			white-space: pre-wrap;
+			font-family: monospace;
+		}
+		.player {
+			background-color: #e9ecef;
+			padding: 10px;
+			margin: 10px 0;
+			border-radius: 4px;
+		}
+	</style>
+</head>
+<body>
+	<h1>SharePoker Demo</h1>
+
+	<div class="container">
+		<h2>服务器状态</h2>
+		<p id="serverStatus">🔄 检查中...</p>
+	</div>
+
+	<div class="container">
+		<h2>上传手牌图片（单张）</h2>
+		<div class="form-group">
+			<label for="gameCode">牌局代码:</label>
+			<input type="text" id="gameCode" placeholder="输入牌局代码，如: 123456">
+		</div>
+		
+		<div class="form-group">
+			<label for="username">用户名:</label>
+			<input type="text" id="username" placeholder="输入你的用户名">
+		</div>
+		
+		<div class="form-group">
+			<label>手牌图片:</label>
+			<input type="file" id="image" accept="image/*" onchange="previewImage()">
+			<div id="preview" style="margin-top: 10px;"></div>
+		</div>
+		
+		<button onclick="uploadCards()">上传手牌</button>
+		<div id="uploadResult" class="result" style="display: none;"></div>
+	</div>
+	
+	<div class="container">
+		<h2>查看牌局</h2>
+		<div class="form-group">
+			<label for="queryGameCode">牌局代码:</label>
+			<input type="text" id="queryGameCode" placeholder="输入要查询的牌局代码">
+		</div>
+		
+		<button onclick="queryGame()">查询牌局</button>
+		<div id="queryResult" class="result" style="display: none;"></div>
+	</div>
+
+	<script>
+		const API_BASE = 'http://localhost:3001';
+
+		// 检查服务器状态
+		async function checkServerStatus() {
+			try {
+				const response = await fetch(`${API_BASE}/api/health`);
+				if (response.ok) {
+					document.getElementById('serverStatus').textContent = '✅ 服务器运行正常';
+					document.getElementById('serverStatus').style.color = 'green';
+				} else {
+					document.getElementById('serverStatus').textContent = '❌ 服务器响应异常';
+					document.getElementById('serverStatus').style.color = 'red';
+				}
+			} catch (error) {
+				document.getElementById('serverStatus').textContent = '❌ 无法连接到服务器';
+				document.getElementById('serverStatus').style.color = 'red';
+			}
+		}
+
+		// 页面加载时检查服务器状态
+		window.onload = function() {
+			checkServerStatus();
+		};
+
+		// 图片预览
+		function previewImage() {
+			const fileInput = document.getElementById('image');
+			const preview = document.getElementById('preview');
+
+			if (fileInput.files && fileInput.files[0]) {
+				const file = fileInput.files[0];
+
+				// 检查文件大小（限制为2MB）
+				if (file.size > 2 * 1024 * 1024) {
+					preview.innerHTML = '<p style="color: red; font-size: 12px;">图片文件太大，请选择小于2MB的图片</p>';
+					fileInput.value = '';
+					return;
+				}
+
+				// 检查文件类型
+				if (!file.type.startsWith('image/')) {
+					preview.innerHTML = '<p style="color: red; font-size: 12px;">请选择图片文件</p>';
+					fileInput.value = '';
+					return;
+				}
+
+				const reader = new FileReader();
+
+				reader.onload = function(e) {
+					preview.innerHTML = `
+						<img src="${e.target.result}" style="max-width: 200px; max-height: 200px; border: 1px solid #ddd; border-radius: 4px;">
+						<p style="font-size: 12px; color: #666;">图片已选择: ${file.name} (${(file.size/1024).toFixed(1)}KB)</p>
+					`;
+				};
+
+				reader.onerror = function() {
+					preview.innerHTML = '<p style="color: red; font-size: 12px;">图片读取失败</p>';
+				};
+
+				reader.readAsDataURL(file);
+			} else {
+				preview.innerHTML = '';
+			}
+		}
+
+		// 将文件转换为Base64（带压缩）
+		function fileToBase64(file) {
+			return new Promise((resolve, reject) => {
+				// 如果文件小于500KB，直接转换
+				if (file.size < 500 * 1024) {
+					const reader = new FileReader();
+					reader.onload = () => resolve(reader.result);
+					reader.onerror = error => reject(error);
+					reader.readAsDataURL(file);
+					return;
+				}
+
+				// 大文件进行压缩
+				const canvas = document.createElement('canvas');
+				const ctx = canvas.getContext('2d');
+				const img = new Image();
+
+				img.onload = function() {
+					// 计算压缩后的尺寸（最大600x600）
+					let { width, height } = img;
+					const maxWidth = 600;
+					const maxHeight = 600;
+
+					if (width > maxWidth || height > maxHeight) {
+						const ratio = Math.min(maxWidth / width, maxHeight / height);
+						width *= ratio;
+						height *= ratio;
+					}
+
+					canvas.width = width;
+					canvas.height = height;
+
+					// 绘制压缩后的图片
+					ctx.drawImage(img, 0, 0, width, height);
+
+					// 转换为Base64（JPEG格式，质量0.8）
+					const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.8);
+					resolve(compressedDataUrl);
+				};
+
+				img.onerror = () => reject(new Error('图片加载失败'));
+
+				const reader = new FileReader();
+				reader.onload = () => img.src = reader.result;
+				reader.onerror = error => reject(error);
+				reader.readAsDataURL(file);
+			});
+		}
+
+		async function uploadCards() {
+			const gameCode = document.getElementById('gameCode').value;
+			const username = document.getElementById('username').value;
+
+			if (!gameCode || !username) {
+				alert('请填写牌局代码和用户名');
+				return;
+			}
+
+			// 处理图片
+			const imageFile = document.getElementById('image').files[0];
+
+			if (!imageFile) {
+				alert('请选择一张图片');
+				return;
+			}
+
+			let imageBase64 = null;
+
+			try {
+				imageBase64 = await fileToBase64(imageFile);
+			} catch (error) {
+				alert('图片处理失败: ' + error.message);
+				return;
+			}
+
+			const payload = {
+				game_code: gameCode,
+				username: username,
+				image: imageBase64
+			};
+
+			try {
+				// 显示上传进度
+				const resultDiv = document.getElementById('uploadResult');
+				resultDiv.style.display = 'block';
+				resultDiv.textContent = '正在上传...';
+				resultDiv.style.backgroundColor = '#fff3cd';
+				resultDiv.style.borderColor = '#ffeaa7';
+
+				const controller = new AbortController();
+				const timeoutId = setTimeout(() => controller.abort(), 30000); // 30秒超时
+
+				const response = await fetch(`${API_BASE}/api/game/upload`, {
+					method: 'POST',
+					headers: {
+						'Content-Type': 'application/json',
+					},
+					body: JSON.stringify(payload),
+					signal: controller.signal
+				});
+
+				clearTimeout(timeoutId);
+
+				const result = await response.json();
+				
+				if (response.ok) {
+					resultDiv.textContent = '上传成功！\n' + JSON.stringify(result, null, 2);
+					resultDiv.style.backgroundColor = '#d4edda';
+					resultDiv.style.borderColor = '#c3e6cb';
+				} else {
+					resultDiv.textContent = '上传失败：\n' + JSON.stringify(result, null, 2);
+					resultDiv.style.backgroundColor = '#f8d7da';
+					resultDiv.style.borderColor = '#f5c6cb';
+				}
+			} catch (error) {
+				const resultDiv = document.getElementById('uploadResult');
+				resultDiv.style.display = 'block';
+
+				if (error.name === 'AbortError') {
+					resultDiv.textContent = '请求超时，请检查网络连接或减小图片大小';
+				} else if (error.message.includes('Failed to fetch')) {
+					resultDiv.textContent = '无法连接到服务器，请确认服务器是否运行在 http://localhost:3001';
+				} else {
+					resultDiv.textContent = '请求失败：' + error.message;
+				}
+
+				resultDiv.style.backgroundColor = '#f8d7da';
+				resultDiv.style.borderColor = '#f5c6cb';
+			}
+		}
+
+		async function queryGame() {
+			const gameCode = document.getElementById('queryGameCode').value;
+
+			if (!gameCode) {
+				alert('请填写牌局代码');
+				return;
+			}
+
+			try {
+				const response = await fetch(`${API_BASE}/api/game/${gameCode}`);
+				const result = await response.json();
+				const resultDiv = document.getElementById('queryResult');
+				resultDiv.style.display = 'block';
+
+				if (response.ok) {
+					// 使用HTML格式显示结果，支持图片
+					let displayHtml = `
+						<h3>牌局代码: ${result.code}</h3>
+						<p>创建时间: ${result.created_at}</p>
+						<h4>玩家列表:</h4>
+					`;
+
+					result.players.forEach((player, index) => {
+						displayHtml += `
+							<div class="player">
+								<h5>${index + 1}. ${player.username}</h5>
+								<div style="display: flex; gap: 10px; margin-top: 10px; align-items: center;">
+							`;
+
+							if (player.hand_image) {
+								displayHtml += `
+									<div style="text-align: center;">
+										<img src="${player.hand_image}" style="max-width: 160px; max-height: 160px; border: 1px solid #ddd; border-radius: 4px;">
+										<p style="font-size: 12px; margin: 5px 0;">手牌图片</p>
+									</div>
+								`;
+							}
+
+							displayHtml += `
+								</div>
+								<p style="font-size: 12px; color: #666;">上传时间: ${player.uploaded_at}</p>
+							</div>
+						`;
+					});
+
+					resultDiv.innerHTML = displayHtml;
+					resultDiv.style.backgroundColor = '#d4edda';
+					resultDiv.style.borderColor = '#c3e6cb';
+				} else {
+					resultDiv.textContent = '查询失败：\n' + JSON.stringify(result, null, 2);
+					resultDiv.style.backgroundColor = '#f8d7da';
+					resultDiv.style.borderColor = '#f5c6cb';
+				}
+			} catch (error) {
+				const resultDiv = document.getElementById('queryResult');
+				resultDiv.style.display = 'block';
+				resultDiv.textContent = '请求失败：' + error.message;
+				resultDiv.style.backgroundColor = '#f8d7da';
+				resultDiv.style.borderColor = '#f5c6cb';
+			}
+		}
+
+		// 设置默认值
+		document.getElementById('gameCode').value = '123456';
+		document.getElementById('queryGameCode').value = '123456';
+		document.getElementById('username').value = 'player1';
+	</script>
+</body>
+</html>

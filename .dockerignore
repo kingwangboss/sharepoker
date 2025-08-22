@@ -1,0 +1,7 @@
+target/
+.git/
+.gitignore
+README.md
+api_test.http
+start_server.bat
+*.md 

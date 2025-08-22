@@ -1,0 +1,80 @@
+name: Cross Compile
+
+on:
+  push:
+    branches: [ main, master ]
+    tags: [ "v*" ]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - x86_64-unknown-linux-gnu
+          - x86_64-unknown-linux-musl
+          - aarch64-unknown-linux-gnu
+          - aarch64-unknown-linux-musl
+          - x86_64-pc-windows-gnu
+          - x86_64-pc-windows-msvc
+    env:
+      CARGO_TERM_COLOR: always
+      RUSTFLAGS: "-C target-cpu=x86-64-v2"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install cross
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cross
+
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-cargo-registry-${{ matrix.target }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-registry-${{ matrix.target }}-
+            ${{ runner.os }}-cargo-registry-
+
+      - name: Cache target dir
+        uses: actions/cache@v4
+        with:
+          path: |
+            target
+          key: ${{ runner.os }}-cargo-target-${{ matrix.target }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-target-${{ matrix.target }}-
+            ${{ runner.os }}-cargo-target-
+
+      - name: Build (${{ matrix.target }})
+        run: cross build --release --target ${{ matrix.target }}
+
+      - name: Prepare artifact
+        shell: bash
+        run: |
+          BIN_NAME=$(grep -m1 '^name\s*=\s*' Cargo.toml | sed -E 's/name\s*=\s*"([^"]+)"/\1/' | head -n1)
+          OUT_DIR="dist/${{ matrix.target }}"
+          mkdir -p "${OUT_DIR}"
+          if [[ "${{ matrix.target }}" == *"windows"* ]]; then
+            cp "target/${{ matrix.target }}/release/${BIN_NAME}.exe" "${OUT_DIR}/${BIN_NAME}.exe"
+          else
+            cp "target/${{ matrix.target }}/release/${BIN_NAME}" "${OUT_DIR}/${BIN_NAME}"
+            chmod +x "${OUT_DIR}/${BIN_NAME}"
+          fi
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ github.workflow }}-${{ matrix.target }}
+          path: dist/${{ matrix.target }}
+          if-no-files-found: error 

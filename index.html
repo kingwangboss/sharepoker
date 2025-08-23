@@ -362,6 +362,11 @@
                         <div class="game-header">
                             <h3>牌局: ${game.code}</h3>
                             <div class="game-meta">创建时间: ${formatTime(game.created_at)}</div>
+                            <div style="margin-top: 15px;">
+                                <button class="btn btn-danger" onclick="clearGame('${game.code}')" style="background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);">
+                                    🗑️ 清理牌局
+                                </button>
+                            </div>
                         </div>
                         <div class="empty-state">
                             <h3>📭 暂无玩家</h3>
@@ -401,6 +406,11 @@
                             创建时间: ${formatTime(game.created_at)} | 
                             玩家数量: ${game.players.length}人
                         </div>
+                        <div style="margin-top: 15px;">
+                            <button class="btn btn-danger" onclick="clearGame('${game.code}')" style="background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);">
+                                🗑️ 清理牌局
+                            </button>
+                        </div>
                     </div>
                     <div class="players-grid">
                         ${playersHtml}
@@ -423,6 +433,32 @@
                 });
             } catch (error) {
                 return timeStr;
+            }
+        }
+
+        // 清理牌局
+        async function clearGame(gameCode) {
+            if (!confirm(`确定要清理牌局 ${gameCode} 吗？此操作不可撤销！`)) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/api/game/${gameCode}`, {
+                    method: 'DELETE'
+                });
+
+                if (response.ok) {
+                    showStatus('✅ 牌局清理成功', 'success');
+                    // 清空牌局显示
+                    document.getElementById('gameResult').innerHTML = '';
+                    // 清空输入框
+                    document.getElementById('gameCode').value = '';
+                } else {
+                    const result = await response.json();
+                    showStatus(`❌ 清理失败: ${result.error || '未知错误'}`, 'error');
+                }
+            } catch (error) {
+                showStatus('❌ 网络错误，清理失败', 'error');
             }
         }
 

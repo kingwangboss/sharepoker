@@ -4,7 +4,7 @@ mod handlers;
 mod error;
 
 use axum::{
-    routing::{get, post},
+    routing::{get, post, delete},
     Router,
 };
 use std::sync::Arc;
@@ -28,6 +28,7 @@ async fn main() {
         .route("/api/health", get(|| async { "OK" }))
         .route("/api/game/upload", post(handlers::game::upload_player_image))
         .route("/api/game/:code", get(handlers::game::get_game_info))
+        .route("/api/game/:code", delete(handlers::game::clear_game))
         .with_state(game_manager)
         .nest_service("/", ServeDir::new("."))
         .layer(CorsLayer::permissive())

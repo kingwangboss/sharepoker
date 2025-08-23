@@ -52,3 +52,15 @@ pub async fn get_game_info(
 
 	Ok(Json(response))
 }
+
+pub async fn clear_game(
+	State(game_manager): State<Arc<GameManager>>,
+	Path(code): Path<String>,
+) -> Result<Json<serde_json::Value>> {
+	game_manager.clear_game(&code)?;
+	
+	Ok(Json(serde_json::json!({
+		"message": "牌局清理成功",
+		"code": code
+	})))
+}

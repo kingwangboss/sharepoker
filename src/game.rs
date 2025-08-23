@@ -52,6 +52,15 @@ impl GameManager {
 			.map(|entry| entry.clone())
 			.ok_or(AppError::GameNotFound)
 	}
+
+	pub fn clear_game(&self, game_code: &str) -> Result<()> {
+		if self.games.contains_key(game_code) {
+			self.games.remove(game_code);
+			Ok(())
+		} else {
+			Err(AppError::GameNotFound)
+		}
+	}
 }
 
 // 添加rand依赖的简单实现

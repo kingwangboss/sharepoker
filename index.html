@@ -261,8 +261,13 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>🃏 SharePoker</h1>
-            <p>扑克牌局查看器 - 实时查看牌局信息</p>
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <h1>🃏 SharePoker</h1>
+                    <p>扑克牌局查看器 - 实时查看牌局信息</p>
+                </div>
+                <button onclick="logout()" style="background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 14px;">退出登录</button>
+            </div>
         </div>
 
         <div class="content">
@@ -283,6 +288,45 @@
     </div>
 
     <script>
+        // 检查登录状态
+        function checkLogin() {
+            const isLoggedIn = localStorage.getItem('isLoggedIn');
+            const loginTime = localStorage.getItem('loginTime');
+            
+            // 检查是否已登录且登录时间在24小时内
+            if (!isLoggedIn || !loginTime) {
+                redirectToLogin();
+                return false;
+            }
+            
+            const now = Date.now();
+            const loginTimestamp = parseInt(loginTime);
+            const hoursSinceLogin = (now - loginTimestamp) / (1000 * 60 * 60);
+            
+            if (hoursSinceLogin > 24) {
+                // 登录已过期，清除登录状态
+                localStorage.removeItem('isLoggedIn');
+                localStorage.removeItem('loginTime');
+                redirectToLogin();
+                return false;
+            }
+            
+            return true;
+        }
+        
+        // 重定向到登录页面
+        function redirectToLogin() {
+            const currentPage = window.location.pathname.split('/').pop() || 'index.html';
+            window.location.href = `login.html?redirect=${currentPage}`;
+        }
+        
+        // 退出登录
+        function logout() {
+            localStorage.removeItem('isLoggedIn');
+            localStorage.removeItem('loginTime');
+            redirectToLogin();
+        }
+        
         // 动态获取API基础URL
         const API_BASE = window.location.origin;
 
@@ -469,8 +513,13 @@
             }
         });
 
-        // 页面加载时检查服务器状态
+        // 页面加载时检查登录状态和服务器状态
         window.onload = function() {
+            // 首先检查登录状态
+            if (!checkLogin()) {
+                return;
+            }
+            
             checkServerStatus();
             // 设置默认牌局代码
             document.getElementById('gameCode').value = '123456';

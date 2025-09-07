@@ -62,6 +62,24 @@
 			margin: 10px 0;
 			border-radius: 4px;
 		}
+		.device-info {
+			font-size: 12px;
+			color: #666;
+			margin-top: 5px;
+		}
+		.generate-device-id {
+			background-color: #28a745;
+			color: white;
+			border: none;
+			padding: 4px 8px;
+			border-radius: 4px;
+			cursor: pointer;
+			font-size: 12px;
+			margin-left: 10px;
+		}
+		.generate-device-id:hover {
+			background-color: #218838;
+		}
 	</style>
 </head>
 <body>
@@ -88,6 +106,15 @@
 		</div>
 		
 		<div class="form-group">
+			<label for="deviceId">设备唯一标识:</label>
+			<input type="text" id="deviceId" placeholder="输入设备唯一标识">
+			<button type="button" class="generate-device-id" onclick="generateDeviceId()">生成设备ID</button>
+			<div class="device-info">
+				设备唯一标识用于识别同一设备，相同设备ID会覆盖之前的玩家名称（解决OCR识别错误问题）
+			</div>
+		</div>
+		
+		<div class="form-group">
 			<label>手牌图片:</label>
 			<input type="file" id="image" accept="image/*" onchange="previewImage()">
 			<div id="preview" style="margin-top: 10px;"></div>
@@ -109,6 +136,14 @@
 	</div>
 
 	<script>
+		// 生成设备唯一标识
+		function generateDeviceId() {
+			const timestamp = Date.now();
+			const random = Math.random().toString(36).substr(2, 9);
+			const deviceId = `device_${timestamp}_${random}`;
+			document.getElementById('deviceId').value = deviceId;
+		}
+
 		// 检查登录状态
 		function checkLogin() {
 			const isLoggedIn = localStorage.getItem('isLoggedIn');
@@ -176,6 +211,9 @@
 			}
 			
 			checkServerStatus();
+			
+			// 自动生成设备ID
+			generateDeviceId();
 		};
 
 		// 图片预览
@@ -271,9 +309,10 @@
 		async function uploadCards() {
 			const gameCode = document.getElementById('gameCode').value;
 			const username = document.getElementById('username').value;
+			const deviceId = document.getElementById('deviceId').value;
 
-			if (!gameCode || !username) {
-				alert('请填写牌局代码和用户名');
+			if (!gameCode || !username || !deviceId) {
+				alert('请填写牌局代码、用户名和设备唯一标识');
 				return;
 			}
 
@@ -297,6 +336,7 @@
 			const payload = {
 				game_code: gameCode,
 				username: username,
+				device_id: deviceId, // 添加设备唯一标识
 				image: imageBase64
 			};
 
@@ -376,6 +416,7 @@
 						displayHtml += `
 							<div class="player">
 								<h5>${index + 1}. ${player.username}</h5>
+								<p class="device-info">设备ID: ${player.device_id}</p>
 								<div style="display: flex; gap: 10px; margin-top: 10px; align-items: center;">
 							`;
 

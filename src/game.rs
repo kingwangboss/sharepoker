@@ -15,7 +15,7 @@ impl GameManager {
 		}
 	}
 
-	pub fn upload_player_image(&self, game_code: String, username: String, image: String) -> Result<Game> {
+	pub fn upload_player_image(&self, game_code: String, username: String, device_id: String, image: String) -> Result<Game> {
 		// 如果牌局不存在，创建新牌局
 		if !self.games.contains_key(&game_code) {
 			let game = Game {
@@ -29,14 +29,16 @@ impl GameManager {
 		let mut game_entry = self.games.get_mut(&game_code)
 			.ok_or(AppError::GameNotFound)?;
 
-		// 检查用户是否已在游戏中，如果是则更新手牌
-		if let Some(player) = game_entry.players.iter_mut().find(|p| p.username == username) {
+		// 首先检查是否有相同设备ID的玩家，如果有则更新该玩家的用户名和手牌
+		if let Some(player) = game_entry.players.iter_mut().find(|p| p.device_id == device_id) {
+			player.username = username; // 覆盖玩家名称
 			player.hand_image = Some(image);
 			player.uploaded_at = Utc::now();
 		} else {
-			// 添加新玩家
+			// 如果没有找到相同设备ID的玩家，添加新玩家
 			let new_player = Player {
 				username,
+				device_id,
 				hand_image: Some(image),
 				uploaded_at: Utc::now(),
 			};

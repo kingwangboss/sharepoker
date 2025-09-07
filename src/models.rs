@@ -4,6 +4,7 @@ use chrono::{DateTime, Utc};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Player {
 	pub username: String,
+	pub device_id: String, // 设备唯一标识
 	pub hand_image: Option<String>,
 	pub uploaded_at: DateTime<Utc>,
 }
@@ -41,6 +42,7 @@ pub struct Game {
 pub struct UploadPlayerRequest {
 	pub game_code: String,
 	pub username: String,
+	pub device_id: String, // 设备唯一标识
 	pub image: String,
 }
 
@@ -54,6 +56,7 @@ pub struct GameResponse {
 #[derive(Debug, Serialize)]
 pub struct PlayerInfo {
 	pub username: String,
+	pub device_id: String, // 设备唯一标识
 	pub hand_image: Option<String>,
 	pub uploaded_at: DateTime<Utc>,
 }

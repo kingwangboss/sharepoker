@@ -14,11 +14,13 @@ pub async fn upload_player_image(
 	let game = game_manager.upload_player_image(
 		payload.game_code,
 		payload.username,
+		payload.device_id, // 添加设备唯一标识
 		payload.image,
 	)?;
 
 	let players: Vec<PlayerInfo> = game.players.into_iter().map(|p| PlayerInfo {
 		username: p.username,
+		device_id: p.device_id, // 添加设备唯一标识
 		hand_image: p.hand_image,
 		uploaded_at: p.uploaded_at,
 	}).collect();
@@ -40,6 +42,7 @@ pub async fn get_game_info(
 
 	let players: Vec<PlayerInfo> = game.players.into_iter().map(|p| PlayerInfo {
 		username: p.username,
+		device_id: p.device_id, // 添加设备唯一标识
 		hand_image: p.hand_image,
 		uploaded_at: p.uploaded_at,
 	}).collect();

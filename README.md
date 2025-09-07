@@ -6,6 +6,7 @@
 
 - 上传用户名和手牌到指定牌局
 - 通过牌局代码查询所有玩家信息
+- **设备唯一标识支持** - 解决OCR识别错误问题
 - 基于内存的数据存储（使用DashMap）
 - 无需用户认证，简单易用
 - 支持Web界面查看牌局
@@ -89,16 +90,35 @@ Content-Type: application/json
 {
     "game_code": "123456",
     "username": "player1",
+    "device_id": "device_001",  // 设备唯一标识
     "image": "data:image/png;base64,iVBORw0KGgo..." // Base64编码的图片
 }
 ```
 
 ### 获取牌局信息
 ```
-GET /api/api/game/{code}
+GET /api/game/{code}
 ```
 
-返回指定牌局代码的所有玩家信息，包括用户名和手牌。
+返回指定牌局代码的所有玩家信息，包括用户名、设备ID和手牌。
+
+## 设备唯一标识功能
+
+### 功能说明
+- 每个设备都有唯一的标识符（device_id）
+- 当相同设备ID上传新的手牌时，会覆盖该设备之前的玩家名称
+- 解决OCR识别玩家名称错误的问题
+- 支持同一设备多次上传，自动更新玩家信息
+
+### 使用场景
+1. **首次上传**：设备上传手牌，创建新的玩家记录
+2. **OCR错误修正**：当OCR识别错误时，使用相同设备ID重新上传，自动覆盖错误的玩家名称
+3. **手牌更新**：同一设备可以多次上传手牌，更新手牌图片
+
+### 设备ID生成
+- 可以使用任意字符串作为设备ID
+- 建议使用有意义的标识符，如：`device_001`、`phone_123`、`tablet_abc`等
+- Demo页面提供自动生成功能
 
 ## 数据结构
 
@@ -109,6 +129,7 @@ GET /api/api/game/{code}
 
 ### 玩家 (Player)
 - `username`: 用户名
+- `device_id`: 设备唯一标识
 - `hand_image`: 手牌图片（Base64或URL）
 - `uploaded_at`: 上传时间
 
@@ -121,11 +142,25 @@ curl -X POST http://localhost:3001/api/game/upload \
   -d '{
     "game_code": "123456",
     "username": "player1",
+    "device_id": "device_001",
     "image": "data:image/png;base64,iVBORw0KGgo..."
   }'
 ```
 
-2. **查看牌局信息**：
+2. **修正OCR识别错误**：
+```bash
+# 使用相同设备ID，但不同的用户名
+curl -X POST http://localhost:3001/api/game/upload \
+  -H "Content-Type: application/json" \
+  -d '{
+    "game_code": "123456",
+    "username": "corrected_player_name",
+    "device_id": "device_001",
+    "image": "data:image/png;base64,iVBORw0KGgo..."
+  }'
+```
+
+3. **查看牌局信息**：
 ```bash
 curl -X GET http://localhost:3001/api/game/123456
 ```
@@ -139,8 +174,8 @@ curl -X GET http://localhost:3001/api/game/123456
 ### 应用文件
 - `target/release/sharepoker.exe` - Windows 64位可执行文件
 - `index.html` - 主界面（查看牌局）
-- `demo.html` - 完整功能演示界面
-- `api_test.http` - REST Client测试文件
+- `demo.html` - 完整功能演示界面（支持设备ID）
+- `api_test.http` - REST Client测试文件（包含设备ID测试用例）
 - `README.md` - 项目说明文档
 
 ## 注意事项
@@ -148,7 +183,8 @@ curl -X GET http://localhost:3001/api/game/123456
 - 这是一个演示项目，数据存储在内存中，服务器重启后数据会丢失
 - 无需用户认证，任何人都可以上传和查看牌局信息
 - 牌局代码可以是任意字符串，如果牌局不存在会自动创建
-- 同一用户名在同一牌局中多次上传会覆盖之前的手牌
+- **设备唯一标识功能**：相同设备ID会覆盖之前的玩家名称和手牌
+- 设备ID用于识别同一设备，解决OCR识别错误问题
 
 ### Docker部署注意事项
 
@@ -161,6 +197,7 @@ curl -X GET http://localhost:3001/api/game/123456
 
 ## 开发计划
 
+- [x] 添加设备唯一标识支持
 - [ ] 添加数据库持久化
 - [ ] 添加WebSocket支持实时通信
 - [ ] 添加牌局管理功能（删除、清空等）

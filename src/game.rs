@@ -1,17 +1,19 @@
 use crate::error::{AppError, Result};
-use crate::models::{Game, Player};
+use crate::models::{Game, Player, UploadLogRequest, UploadLogResponse, LogEntry};
 use chrono::Utc;
 use dashmap::DashMap;
 use std::sync::Arc;
 
 pub struct GameManager {
 	games: Arc<DashMap<String, Game>>, // game_code -> Game
+	logs: Arc<DashMap<String, Vec<LogEntry>>>, // key -> logs
 }
 
 impl GameManager {
 	pub fn new() -> Self {
 		Self {
 			games: Arc::new(DashMap::new()),
+			logs: Arc::new(DashMap::new()),
 		}
 	}
 
@@ -62,6 +64,55 @@ impl GameManager {
 		} else {
 			Err(AppError::GameNotFound)
 		}
+	}
+
+	pub fn upload_log(&self, req: UploadLogRequest) -> Result<UploadLogResponse> {
+		let key = req.game_code.clone().unwrap_or_else(|| format!("device:{}", req.device_id.clone()));
+
+		let entry = LogEntry {
+			device_id: req.device_id,
+			message: req.message,
+			game_code: req.game_code,
+			username: req.username,
+			level: req.level,
+			created_at: Utc::now(),
+		};
+
+		self.logs
+			.entry(key)
+			.and_modify(|v| v.push(entry.clone()))
+			.or_insert_with(|| vec![entry]);
+
+		Ok(UploadLogResponse {
+			status: "ok".to_string(),
+			stored_at: Utc::now(),
+		})
+	}
+
+	pub fn get_logs(&self, game_code: Option<String>, device_id: Option<String>, limit: Option<usize>) -> Result<Vec<LogEntry>> {
+		let mut all: Vec<LogEntry> = Vec::new();
+
+		if let Some(code) = game_code {
+			if let Some(v) = self.logs.get(&code) { all.extend(v.value().clone()); }
+		}
+
+		if let Some(dev) = device_id {
+			let key = format!("device:{}", dev);
+			if let Some(v) = self.logs.get(&key) { all.extend(v.value().clone()); }
+		}
+
+		// 如果未提供任何过滤条件，聚合所有日志
+		if all.is_empty() {
+			for item in self.logs.iter() { all.extend(item.value().clone()); }
+		}
+
+		// 按时间排序，最新在前
+		all.sort_by(|a, b| b.created_at.cmp(&a.created_at));
+
+		// 截断到limit
+		if let Some(l) = limit { all.truncate(l); }
+
+		Ok(all)
 	}
 }
 

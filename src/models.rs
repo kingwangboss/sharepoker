@@ -60,3 +60,40 @@ pub struct PlayerInfo {
 	pub hand_image: Option<String>,
 	pub uploaded_at: DateTime<Utc>,
 }
+
+#[derive(Debug, Deserialize)]
+pub struct LogsQuery {
+	pub game_code: Option<String>,
+	pub device_id: Option<String>,
+	pub limit: Option<usize>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct LogsResponse {
+	pub logs: Vec<LogEntry>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LogEntry {
+	pub device_id: String,
+	pub message: String,
+	pub game_code: Option<String>,
+	pub username: Option<String>,
+	pub level: Option<String>,
+	pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct UploadLogRequest {
+	pub device_id: String,
+	pub message: String,
+	pub game_code: Option<String>,
+	pub username: Option<String>,
+	pub level: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct UploadLogResponse {
+	pub status: String,
+	pub stored_at: DateTime<Utc>,
+}

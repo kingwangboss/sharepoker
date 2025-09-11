@@ -63,3 +63,21 @@ Content-Type: application/json
 
 ### 8. 最终验证
 GET http://localhost:3001/api/game/123456
+
+### 11. 上传日志
+POST http://localhost:3001/api/log/upload
+Content-Type: application/json
+
+{
+	"device_id": "device001",
+	"game_code": "123456",
+	"username": "player1",
+	"level": "info",
+	"message": "客户端启动并选择了图片，准备上传。"
+}
+
+### 12. 查询日志（按game_code）
+GET http://localhost:3001/api/logs?game_code=123456&limit=50
+
+### 13. 查询日志（按device_id）
+GET http://localhost:3001/api/logs?device_id=device001&limit=50

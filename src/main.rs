@@ -29,6 +29,8 @@ async fn main() {
         .route("/api/game/upload", post(handlers::game::upload_player_image))
         .route("/api/game/:code", get(handlers::game::get_game_info))
         .route("/api/game/:code", delete(handlers::game::clear_game))
+        .route("/api/log/upload", post(handlers::log::upload_log))
+        .route("/api/logs", get(handlers::log::get_logs))
         .with_state(game_manager)
         .nest_service("/", ServeDir::new("."))
         .layer(CorsLayer::permissive())

@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>SharePoker Logs</title>
+	<style>
+		body { font-family: Arial, sans-serif; max-width: 1000px; margin: 0 auto; padding: 20px; background: #f5f5f5; }
+		.container { background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 20px; }
+		label { display: block; font-weight: bold; margin-bottom: 6px; }
+		input, select, button { padding: 8px; border: 1px solid #ddd; border-radius: 4px; }
+		.grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+		.controls { display: flex; gap: 10px; align-items: center; margin-top: 10px; }
+		.table { width: 100%; border-collapse: collapse; }
+		.table th, .table td { border: 1px solid #e5e7eb; padding: 8px; font-size: 14px; }
+		.table th { background: #f9fafb; text-align: left; }
+		.badge { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 12px; }
+		.badge.info { background: #e0f2fe; color: #0369a1; }
+		.badge.warn { background: #fef9c3; color: #92400e; }
+		.badge.error { background: #fee2e2; color: #b91c1c; }
+		.badge.debug { background: #f3e8ff; color: #6b21a8; }
+		.footer { font-size: 12px; color: #666; margin-top: 10px; }
+	</style>
+</head>
+<body>
+	<h1>SharePoker 日志</h1>
+	<div class="container">
+		<div class="grid">
+			<div>
+				<label for="gameCode">牌局代码</label>
+				<input type="text" id="gameCode" placeholder="例如: 123456">
+			</div>
+			<div>
+				<label for="deviceId">设备ID</label>
+				<input type="text" id="deviceId" placeholder="例如: device001">
+			</div>
+			<div>
+				<label for="level">级别</label>
+				<select id="level">
+					<option value="">全部</option>
+					<option value="info">info</option>
+					<option value="warn">warn</option>
+					<option value="error">error</option>
+					<option value="debug">debug</option>
+				</select>
+			</div>
+			<div>
+				<label for="limit">条数</label>
+				<input type="number" id="limit" value="100" min="1" max="1000">
+			</div>
+		</div>
+		<div class="controls">
+			<button onclick="loadLogs()">查询</button>
+			<button onclick="toggleAutoRefresh()" id="autoBtn">开启自动刷新</button>
+			<span id="status" class="footer">未刷新</span>
+		</div>
+	</div>
+
+	<div class="container">
+		<table class="table">
+			<thead>
+				<tr>
+					<th>时间</th>
+					<th>级别</th>
+					<th>牌局</th>
+					<th>设备ID</th>
+					<th>用户名</th>
+					<th>消息</th>
+				</tr>
+			</thead>
+			<tbody id="logTable"></tbody>
+		</table>
+		<div class="footer">最新在前显示</div>
+	</div>
+
+	<script>
+		const API_BASE = window.location.origin;
+		let autoTimer = null;
+
+		function badge(level) {
+			const cls = level || 'info';
+			return `<span class="badge ${cls}">${level || 'info'}</span>`;
+		}
+
+		function escapeHtml(text) {
+			return (text || '')
+				.replace(/&/g, '&amp;')
+				.replace(/</g, '&lt;')
+				.replace(/>/g, '&gt;')
+				.replace(/"/g, '&quot;')
+				.replace(/'/g, '&#039;');
+		}
+
+		async function loadLogs() {
+			const gameCode = document.getElementById('gameCode').value.trim();
+			const deviceId = document.getElementById('deviceId').value.trim();
+			const level = document.getElementById('level').value;
+			const limit = document.getElementById('limit').value || 100;
+
+			let url = `${API_BASE}/api/logs?limit=${encodeURIComponent(limit)}`;
+			if (gameCode) url += `&game_code=${encodeURIComponent(gameCode)}`;
+			if (deviceId) url += `&device_id=${encodeURIComponent(deviceId)}`;
+
+			document.getElementById('status').textContent = '加载中...';
+			try {
+				const res = await fetch(url);
+				const data = await res.json();
+				let rows = '';
+				(data.logs || []).forEach(l => {
+					if (level && (l.level || '') !== level) return;
+					rows += `
+						<tr>
+							<td>${escapeHtml(l.created_at)}</td>
+							<td>${badge(l.level)}</td>
+							<td>${escapeHtml(l.game_code || '')}</td>
+							<td>${escapeHtml(l.device_id)}</td>
+							<td>${escapeHtml(l.username || '')}</td>
+							<td style="max-width:520px; white-space:pre-wrap;">${escapeHtml(l.message)}</td>
+						</tr>
+					`;
+				});
+				document.getElementById('logTable').innerHTML = rows || '<tr><td colspan="6">暂无日志</td></tr>';
+				document.getElementById('status').textContent = `已刷新 ${new Date().toLocaleTimeString()}`;
+			} catch (e) {
+				document.getElementById('status').textContent = '加载失败：' + e.message;
+			}
+		}
+
+		function toggleAutoRefresh() {
+			const btn = document.getElementById('autoBtn');
+			if (autoTimer) {
+				clearInterval(autoTimer);
+				autoTimer = null;
+				btn.textContent = '开启自动刷新';
+				return;
+			}
+			autoTimer = setInterval(loadLogs, 5000);
+			btn.textContent = '关闭自动刷新';
+			loadLogs();
+		}
+
+		// 默认加载最近日志
+		loadLogs();
+	</script>
+</body>
+</html> 
